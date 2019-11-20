@@ -13,6 +13,7 @@ const exec = mongoose.Query.prototype.exec;
 
 //Create a new cache function on the Query prototype to create the ability to toggle caching
 mongoose.Query.prototype.cache = function() {
+	//Set a flag on the query object to use caching.
 	//'this' refers to the called query object
 	this._cache = true;
 
@@ -36,15 +37,11 @@ mongoose.Query.prototype.exec = async function () {
 
 	//If there is a cached value, return it
 	if(cacheValue){
-		console.log('Serving from cache');
-
-		//A simple 'return JSON.parse(cacheValue);' won't work here. Exec must return a Model instance
-		//Can construct a new model referenced from the query being executed
-		//const doc = new this.model(JSON.parse(cacheValue));
-		const doc = JSON.parse(cacheValue);
-
-		//Need to check whether the cached value is a single document or an array of documents
+		//Exec must return a Model instance. A simple 'return JSON.parse(cacheValue);' won't work here. 
+		//We can construct a new model referenced from the query being executed. However, need to
+		//also check whether the cached value is a single document or an array of documents
 		//Then hydrate the model(s)
+		const doc = JSON.parse(cacheValue);
 		return Array.isArray(doc) 
 			? doc.map(document => new this.model(document))
 			: new this.model(doc);
@@ -56,5 +53,4 @@ mongoose.Query.prototype.exec = async function () {
 	//Stores the array of documents in redis
 	client.set(key, JSON.stringify(result), 'EX', 10);
 	return result;
-
 }
