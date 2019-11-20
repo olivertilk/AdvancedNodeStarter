@@ -6,16 +6,17 @@ const redisUrl = 'redis://127.0.0.1:6379';
 const client = redis.createClient(redisUrl);
 
 //Redis does not return a promise so promisify to avoid callbacks
-client.get = util.promisify(client.get);
+client.hget = util.promisify(client.hget);
 
 //Get a reference to the original Mongoose-defined exec() function
 const exec = mongoose.Query.prototype.exec;
 
 //Create a new cache function on the Query prototype to create the ability to toggle caching
-mongoose.Query.prototype.cache = function() {
+mongoose.Query.prototype.cache = function(options = {}) {
 	//Set a flag on the query object to use caching.
 	//'this' refers to the called query object
 	this._cache = true;
+	this._hashKey = JSON.stringify(options.key || '');  //'' is the default key
 
 	//Make this function chainable
 	return this;
@@ -32,8 +33,8 @@ mongoose.Query.prototype.exec = async function () {
 		collection: this.mongooseCollection.name
 	}));
 
-	//Check if there is a value for 'key' in redis
-	const cacheValue = await client.get(key);
+	//Check if there is a value for 'key' in redis for the given hash key
+	const cacheValue = await client.hget(this._hashKey, key);
 
 	//If there is a cached value, return it
 	if(cacheValue){
@@ -51,6 +52,14 @@ mongoose.Query.prototype.exec = async function () {
 	const result = await exec.apply(this, arguments);
 
 	//Stores the array of documents in redis
-	client.set(key, JSON.stringify(result), 'EX', 10);
+	client.hset(this._hashKey, key, JSON.stringify(result), 'EX', 10);
 	return result;
 }
+
+
+module.exports = {
+	clearHash(hashKey) {
+		//Delete data associated with a given hashKey
+		client.del(JSON.stringify(hashKey));
+	}
+};
