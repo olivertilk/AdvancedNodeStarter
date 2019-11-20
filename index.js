@@ -13,6 +13,7 @@ const path = require('path')
 require('@models/User')
 require('@models/Blog')
 require('@services/passport')
+require('@services/cache')
 
 // Routes
 const setupAuthRoutes = require('@routes/authRoutes')
